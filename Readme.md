@@ -15,7 +15,7 @@ This project was completed as part of the **Practical Machine Learning Training 
 * **Model Comparison:** Compare $R^2$ and MAE (Mean Absolute Error) across 6 different regression algorithms.
 * **Feature Importance:** Visualizes which factors (like Median Income) drive housing prices most.
 
-## 🛠️ Tech Stack
+## Tech Stack
 * **Frontend:** Streamlit
 * **Data Handling:** Pandas, NumPy
 * **Visualization:** Matplotlib, Seaborn, Plotly
