@@ -1,6 +1,3 @@
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -454,7 +451,7 @@ with tabs[0]:
             for spine in ax.spines.values(): spine.set_visible(False)
             ax.tick_params(colors="#777", labelsize=7)
             fig.tight_layout()
-            st.pyplot(fig, use_container_width=True)
+            st.pyplot(fig, width='stretch')
 
             # Feature influence mini-bar (only for tree-based)
             if not is_linear and hasattr(chosen_model, "feature_importances_"):
@@ -471,7 +468,7 @@ with tabs[0]:
                 for spine in ax2.spines.values(): spine.set_visible(False)
                 ax2.tick_params(colors="#777", labelsize=7.5)
                 fig2.tight_layout()
-                st.pyplot(fig2, use_container_width=True)
+                st.pyplot(fig2, width='stretch')
         else:
             st.markdown("""<div class="info-box">
             <i class="bi bi-arrow-left-circle"></i> &nbsp;Adjust the sliders and click <strong>Run Prediction</strong> to see the estimate,
@@ -535,7 +532,7 @@ with tabs[1]:
         ax.plot(lon, lat, "w^", ms=5, zorder=5)
 
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # Price heatmap by region
     st.markdown("**Regional Price Heatmap (binned grid)**")
@@ -549,7 +546,7 @@ with tabs[1]:
     ax2.tick_params(colors="#aaa"); ax2.xaxis.label.set_color("#aaa"); ax2.yaxis.label.set_color("#aaa")
     ax2.title.set_color("white")
     fig2.tight_layout()
-    st.pyplot(fig2, use_container_width=True)
+    st.pyplot(fig2, width='stretch')
 
 # ═══════════════════════════════════════════════════
 # TAB 3 — EDA
@@ -585,7 +582,7 @@ with tabs[2]:
             for sp in axes[1].spines.values(): sp.set_visible(False)
             axes[1].tick_params(labelsize=7)
             fig.tight_layout()
-            st.pyplot(fig, use_container_width=True)
+            st.pyplot(fig, width='stretch')
 
     # ── Scatter matrix of key features
     st.markdown("**Pairwise Scatter: Income, Age, Rooms vs Price**")
@@ -604,7 +601,7 @@ with tabs[2]:
         ax.legend(fontsize=7)
     plt.colorbar(sc, ax=axes[-1], label="Latitude", shrink=0.7)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # ── Correlation heatmap
     st.markdown("**Full Correlation Matrix**")
@@ -618,7 +615,7 @@ with tabs[2]:
     ax.set_title("Pearson Correlation Matrix — all features", fontsize=11, fontweight="bold")
     ax.tick_params(labelsize=8)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # ── Outlier analysis
     st.markdown("**Outlier Detection — IQR Method**")
@@ -680,7 +677,7 @@ with tabs[3]:
             ax.tick_params(labelsize=7.5)
             ax.set_xlim(0, max(vals)*1.15 if metric != "r2" else 1.05)
             fig.tight_layout()
-            st.pyplot(fig, use_container_width=True)
+            st.pyplot(fig, width='stretch')
 
     # ── Predicted vs Actual for each model
     st.markdown("**Predicted vs Actual — all models**")
@@ -704,7 +701,7 @@ with tabs[3]:
             ax.set_facecolor("#FFF8E1")
     fig.suptitle("Predicted vs Actual Price — all models", fontsize=11, fontweight="bold", y=1.01)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # ── Residual comparison
     st.markdown("**Residual Distributions — side-by-side**")
@@ -719,7 +716,7 @@ with tabs[3]:
     ax.legend(fontsize=8)
     for sp in ax.spines.values(): sp.set_alpha(0.3)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
 # ═══════════════════════════════════════════════════
 # TAB 5 — INSIGHTS
@@ -750,16 +747,18 @@ with tabs[4]:
         ax.tick_params(labelsize=8)
         ax.set_xlim(0, fi.max() * 1.18)
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
     with i2:
         # Permutation importance (more robust)
         st.markdown("**Permutation Importance (test set)**")
-        with st.spinner("Computing permutation importance…"):
-            perm = permutation_importance(ins_model, X_test, y_test,
-                                          n_repeats=8, random_state=42, n_jobs=-1)
-        perm_means = pd.Series(perm.importances_mean, index=FEATURES).sort_values()
-        perm_stds  = pd.Series(perm.importances_std,  index=FEATURES).reindex(perm_means.index)
+        @st.cache_data(show_spinner="Computing permutation importance (cached after first run)…")
+        def compute_perm(_model, model_name):
+            p = permutation_importance(_model, X_test, y_test, n_repeats=8, random_state=42, n_jobs=-1)
+            return p.importances_mean, p.importances_std
+        perm_mean_arr, perm_std_arr = compute_perm(ins_model, ins_model_name)
+        perm_means = pd.Series(perm_mean_arr, index=FEATURES).sort_values()
+        perm_stds  = pd.Series(perm_std_arr,  index=FEATURES).reindex(perm_means.index)
 
         fig, ax = plt.subplots(figsize=(5.5, 5))
         ax.barh(perm_means.index, perm_means.values,
@@ -772,7 +771,7 @@ with tabs[4]:
         ax.tick_params(labelsize=8)
         ax.axvline(0, color="#ccc", linewidth=0.8, linestyle="--")
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
     # Partial dependence — manual implementation
     st.markdown("**Partial Dependence — how each feature affects predicted price**")
@@ -794,7 +793,7 @@ with tabs[4]:
     for sp in ax.spines.values(): sp.set_alpha(0.3)
     ax.tick_params(labelsize=8)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # Error analysis
     st.markdown("**Residual Deep Dive**")
@@ -814,7 +813,7 @@ with tabs[4]:
         for sp in ax.spines.values(): sp.set_alpha(0.3)
         ax.tick_params(labelsize=7.5)
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
     with ea2:
         fig, ax = plt.subplots(figsize=(5.5, 3.8))
@@ -833,7 +832,7 @@ with tabs[4]:
         for sp in ax.spines.values(): sp.set_alpha(0.3)
         ax.tick_params(labelsize=7.5)
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
 # ═══════════════════════════════════════════════════
 # TAB 6 — LEARNING CURVES
@@ -852,19 +851,15 @@ with tabs[5]:
     both curves being high signals <strong>underfitting</strong>.
     </div>""", unsafe_allow_html=True)
 
-    with st.spinner("Computing learning curves (this may take ~15 seconds)…"):
-        sizes = np.linspace(0.1, 1.0, 8)
-        if is_lc_linear:
-            Xuse, Xuse_label = X_train_sc, "Scaled Features"
-        else:
-            Xuse, Xuse_label = X_train, "Raw Features"
+    @st.cache_data(show_spinner="Computing learning curves (cached after first run)…")
+    def compute_lc(_model, model_name, is_linear):
+        Xu = X_train_sc if is_linear else X_train
+        return learning_curve(_model, Xu, y_train,
+                              train_sizes=np.linspace(0.1, 1.0, 8), cv=4,
+                              scoring="r2", n_jobs=-1, shuffle=True, random_state=42)
 
-        train_sizes_abs, train_scores, val_scores = learning_curve(
-            lc_model_obj, Xuse, y_train,
-            train_sizes=sizes, cv=4,
-            scoring="r2", n_jobs=-1,
-            shuffle=True, random_state=42
-        )
+    Xuse_label = "Scaled Features" if is_lc_linear else "Raw Features"
+    train_sizes_abs, train_scores, val_scores = compute_lc(lc_model_obj, lc_model_name, is_lc_linear)
 
     train_mean = train_scores.mean(axis=1)
     train_std  = train_scores.std(axis=1)
@@ -904,7 +899,7 @@ with tabs[5]:
     ax2.tick_params(labelsize=8); ax2.grid(alpha=0.15)
 
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # ── Cross-validation score distribution
     st.markdown("**5-Fold Cross-Validation Scores — all models**")
@@ -931,7 +926,7 @@ with tabs[5]:
     for sp in ax.spines.values(): sp.set_alpha(0.3)
     ax.tick_params(labelsize=8); ax.grid(axis="y", alpha=0.2)
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
     # CV summary table
     cv_summary = pd.DataFrame({
@@ -1055,7 +1050,7 @@ with tabs[6]:
         ax_r.set_yticklabels([])
 
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
         # Difference table
         baseline = sc_predictions[0]
