@@ -370,8 +370,30 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════
 MODEL_PATH = f"house_model_{n_estimators}_{max_depth}_{random_seed}.pkl"
 
-@st.cache_resource(show_spinner="Training models — this takes ~20 seconds the first time…")
+@st.cache_resource(show_spinner="Loading pre-trained models…")
 def load_everything(test_sz, seed, n_est, mx_depth):
+    """Load pre-trained models from disk. If not found, train them."""
+    import os
+    
+    # Try to load pre-trained models
+    if os.path.exists("models_trained.pkl"):
+        with open("models_trained.pkl", "rb") as f:
+            cached_data = pickle.load(f)
+        
+        # Reconstruct full X and y from train/test splits
+        X_full = pd.concat([cached_data["X_train"], cached_data["X_test"]], ignore_index=True)
+        y_full = pd.concat([cached_data["y_train"], cached_data["y_test"]], ignore_index=True)
+        
+        return (cached_data["df"], X_full, y_full,
+                cached_data["X_train"], cached_data["X_test"],
+                cached_data["y_train"], cached_data["y_test"],
+                cached_data["X_train_sc"], cached_data["X_test_sc"],
+                cached_data["scaler"],
+                cached_data["trained_models"], cached_data["model_results"],
+                cached_data["best_name"], cached_data["best_model"],
+                cached_data["best_preds"], cached_data["FEATURES"])
+    
+    # Fallback: Train models if pickle not found
     data = fetch_california_housing(as_frame=True)
     df = data.frame.copy()
     df.columns = [
