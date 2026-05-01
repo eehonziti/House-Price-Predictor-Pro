@@ -32,6 +32,10 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.inspection import permutation_importance
 
+# Optimize for Streamlit Cloud
+import os
+os.environ['SKLEARN_ENABLE_TAGS_CHECKING'] = '0'
+
 # ── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="House Price Predictor Pro",
