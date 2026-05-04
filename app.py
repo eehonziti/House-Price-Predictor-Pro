@@ -335,11 +335,15 @@ with st.sidebar:
     st.markdown("## <i class='bi bi-sliders'></i> Settings", unsafe_allow_html=True)
     st.markdown("---")
 
-    test_size = st.slider("Test Split Size", 0.10, 0.40, 0.20, 0.05,
-                          help="Fraction of data held out for evaluation")
-    random_seed = st.selectbox("Random Seed", [42, 7, 99, 2024, 2026], index=0)
-    n_estimators = st.slider("RF: n_estimators", 50, 300, 50, 50)
-    max_depth = st.slider("RF: max_depth", 4, 20, 8, 2)
+    # Model settings are fixed (pre-trained in models_trained.pkl)
+    test_size   = 0.20
+    random_seed = 42
+    n_estimators = 50
+    max_depth    = 8
+    st.markdown("""<div class="info-box" style="font-size:0.78rem">
+        ⚡ Models are pre-trained for instant loading.<br>
+        Settings: test=20%, seed=42, n_est=50, depth=8
+    </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### <i class='bi bi-palette'></i> Chart Theme", unsafe_allow_html=True)
@@ -365,78 +369,28 @@ with st.sidebar:
 # DATA & MODELS
 # ══════════════════════════════════════════════════════════════════════════
 
-@st.cache_resource(show_spinner="Training models — this takes ~20 seconds the first time…")
-def load_everything(test_sz, seed, n_est, mx_depth):
-    data = fetch_california_housing(as_frame=True)
-    df = data.frame.copy()
-    df.columns = [
-        "MedIncome", "HouseAge", "AvgRooms", "AvgBedrooms",
-        "Population", "AvgOccupants", "Latitude", "Longitude", "Price"
-    ]
-    df["Price"] = df["Price"] * 100_000
-
-    # Feature engineering
-    df["RoomsPerPerson"]   = df["AvgRooms"] / df["AvgOccupants"].clip(0.5)
-    df["BedroomRatio"]     = df["AvgBedrooms"] / df["AvgRooms"].clip(1)
-    df["IncomePerPerson"]  = df["MedIncome"] / df["AvgOccupants"].clip(0.5)
-    df["PopDensity"]       = df["Population"] / df["AvgOccupants"].clip(0.5)
-
-    FEATURES = ["MedIncome", "HouseAge", "AvgRooms", "AvgBedrooms",
-                "Population", "AvgOccupants", "Latitude", "Longitude",
-                "RoomsPerPerson", "BedroomRatio", "IncomePerPerson", "PopDensity"]
-
-    X = df[FEATURES]
-    y = df["Price"]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_sz, random_state=seed)
-
-    scaler = StandardScaler()
-    X_train_sc = scaler.fit_transform(X_train)
-    X_test_sc  = scaler.transform(X_test)
-
-    # ── Train all models ──
-    models_def = {
-        "Random Forest":        RandomForestRegressor(n_estimators=n_est, max_depth=mx_depth,
-                                                      random_state=seed, n_jobs=-1),
-        "Extra Trees":          ExtraTreesRegressor(n_estimators=50, max_depth=mx_depth,
-                                                    random_state=seed, n_jobs=-1),
-        "Gradient Boosting":    GradientBoostingRegressor(n_estimators=50, max_depth=5,
-                                                          random_state=seed, subsample=0.8),
-        "Decision Tree":        DecisionTreeRegressor(max_depth=mx_depth, random_state=seed),
-        "Ridge Regression":     Ridge(alpha=1.0),
-        "Lasso Regression":     Lasso(alpha=50.0, max_iter=5000),
-    }
-
-    results = {}
-    trained = {}
-    for name, mdl in models_def.items():
-        if name in ("Ridge Regression", "Lasso Regression"):
-            mdl.fit(X_train_sc, y_train)
-            preds = mdl.predict(X_test_sc)
-        else:
-            mdl.fit(X_train, y_train)
-            preds = mdl.predict(X_test)
-        results[name] = {
-            "mae":  mean_absolute_error(y_test, preds),
-            "rmse": np.sqrt(mean_squared_error(y_test, preds)),
-            "r2":   r2_score(y_test, preds),
-            "preds": preds,
-        }
-        trained[name] = mdl
-
-    # Best model = highest R²
-    best_name = max(results, key=lambda k: results[k]["r2"])
-    best_model = trained[best_name]
-    best_preds = results[best_name]["preds"]
-
-    return (df, X, y, X_train, X_test, y_train, y_test,
-            X_train_sc, X_test_sc, scaler,
-            trained, results, best_name, best_model, best_preds, FEATURES)
+@st.cache_resource(show_spinner="Loading pre-trained models…")
+def load_everything():
+    """Load pre-trained models from pkl — no training, instant load."""
+    if not os.path.exists("models_trained.pkl"):
+        st.error("models_trained.pkl not found. Run train_and_save_models.py locally then commit the file to GitHub.")
+        st.stop()
+    with open("models_trained.pkl", "rb") as f:
+        d = pickle.load(f)
+    X_full = pd.concat([d["X_train"], d["X_test"]], ignore_index=True)
+    y_full = pd.concat([d["y_train"], d["y_test"]], ignore_index=True)
+    return (d["df"], X_full, y_full,
+            d["X_train"], d["X_test"],
+            d["y_train"], d["y_test"],
+            d["X_train_sc"], d["X_test_sc"],
+            d["scaler"],
+            d["trained_models"], d["model_results"],
+            d["best_name"], d["best_model"],
+            d["best_preds"], d["FEATURES"])
 
 (df, X, y, X_train, X_test, y_train, y_test,
  X_train_sc, X_test_sc, scaler,
- trained_models, model_results, best_name, best_model, best_preds, FEATURES) = load_everything(
-    test_size, random_seed, n_estimators, max_depth)
+ trained_models, model_results, best_name, best_model, best_preds, FEATURES) = load_everything()
 
 mae  = model_results[best_name]["mae"]
 rmse = model_results[best_name]["rmse"]
