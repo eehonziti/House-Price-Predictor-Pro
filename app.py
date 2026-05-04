@@ -338,7 +338,7 @@ with st.sidebar:
     st.markdown("## <i class='bi bi-sliders'></i> Settings", unsafe_allow_html=True)
     st.markdown("---")
 
-    # Model settings are fixed (pre-trained in models_trained.pkl)
+    # Model settings fixed — trains once on startup, cached for session
     test_size   = 0.20
     random_seed = 42
     n_estimators = 50
@@ -372,24 +372,68 @@ with st.sidebar:
 # DATA & MODELS
 # ══════════════════════════════════════════════════════════════════════════
 
-@st.cache_resource(show_spinner="Loading pre-trained models…")
+@st.cache_resource(show_spinner="⏳ Training models — first load only, ~20 seconds…")
 def load_everything():
-    """Load pre-trained models from pkl — no training, instant load."""
-    if not os.path.exists("models_trained.pkl"):
-        st.error("models_trained.pkl not found. Run train_and_save_models.py locally then commit the file to GitHub.")
-        st.stop()
-    with open("models_trained.pkl", "rb") as f:
-        d = pickle.load(f)
-    X_full = pd.concat([d["X_train"], d["X_test"]], ignore_index=True)
-    y_full = pd.concat([d["y_train"], d["y_test"]], ignore_index=True)
-    return (d["df"], X_full, y_full,
-            d["X_train"], d["X_test"],
-            d["y_train"], d["y_test"],
-            d["X_train_sc"], d["X_test_sc"],
-            d["scaler"],
-            d["trained_models"], d["model_results"],
-            d["best_name"], d["best_model"],
-            d["best_preds"], d["FEATURES"])
+    """Train all models once on startup. No pkl needed. Cache never invalidates."""
+    from sklearn.datasets import fetch_california_housing
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
+    from sklearn.linear_model import Ridge, Lasso
+    from sklearn.tree import DecisionTreeRegressor
+    from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
+
+    data = fetch_california_housing(as_frame=True)
+    df = data.frame.copy()
+    df.columns = ["MedIncome","HouseAge","AvgRooms","AvgBedrooms",
+                  "Population","AvgOccupants","Latitude","Longitude","Price"]
+    df["Price"] *= 100_000
+    df["RoomsPerPerson"]  = df["AvgRooms"]    / df["AvgOccupants"].clip(0.5)
+    df["BedroomRatio"]    = df["AvgBedrooms"] / df["AvgRooms"].clip(1)
+    df["IncomePerPerson"] = df["MedIncome"]   / df["AvgOccupants"].clip(0.5)
+    df["PopDensity"]      = df["Population"]  / df["AvgOccupants"].clip(0.5)
+
+    FEATURES = ["MedIncome","HouseAge","AvgRooms","AvgBedrooms",
+                "Population","AvgOccupants","Latitude","Longitude",
+                "RoomsPerPerson","BedroomRatio","IncomePerPerson","PopDensity"]
+
+    X = df[FEATURES]; y = df["Price"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+
+    scaler     = StandardScaler()
+    X_train_sc = scaler.fit_transform(X_train)
+    X_test_sc  = scaler.transform(X_test)
+
+    models_def = {
+        "Random Forest":     RandomForestRegressor(n_estimators=50, max_depth=8, random_state=42),
+        "Extra Trees":       ExtraTreesRegressor(n_estimators=50, max_depth=8, random_state=42),
+        "Gradient Boosting": GradientBoostingRegressor(n_estimators=50, max_depth=5, random_state=42, subsample=0.8),
+        "Decision Tree":     DecisionTreeRegressor(max_depth=8, random_state=42),
+        "Ridge Regression":  Ridge(alpha=1.0),
+        "Lasso Regression":  Lasso(alpha=50.0, max_iter=5000),
+    }
+    results = {}; trained = {}
+    for name, mdl in models_def.items():
+        Xtr = X_train_sc if name in ("Ridge Regression","Lasso Regression") else X_train
+        Xte = X_test_sc  if name in ("Ridge Regression","Lasso Regression") else X_test
+        mdl.fit(Xtr, y_train)
+        preds = mdl.predict(Xte)
+        results[name] = {
+            "mae":   mean_absolute_error(y_test, preds),
+            "rmse":  np.sqrt(mean_squared_error(y_test, preds)),
+            "r2":    r2_score(y_test, preds),
+            "preds": preds,
+        }
+        trained[name] = mdl
+
+    best_name  = max(results, key=lambda k: results[k]["r2"])
+    best_model = trained[best_name]
+    best_preds = results[best_name]["preds"]
+    X_full = pd.concat([X_train, X_test], ignore_index=True)
+    y_full = pd.concat([y_train, y_test], ignore_index=True)
+    return (df, X_full, y_full, X_train, X_test, y_train, y_test,
+            X_train_sc, X_test_sc, scaler,
+            trained, results, best_name, best_model, best_preds, FEATURES)
 
 (df, X, y, X_train, X_test, y_train, y_test,
  X_train_sc, X_test_sc, scaler,
