@@ -651,7 +651,7 @@ with tabs[0]:
                 "MAE ($)": [f"{v['mae']:,.0f}" for v in model_results.values()],
                 "RMSE ($)":[f"{v['rmse']:,.0f}"for v in model_results.values()],
             }).sort_values("R²", ascending=False).reset_index(drop=True)
-            st.dataframe(perf_df, use_container_width=True, hide_index=True)
+            st.dataframe(perf_df, width="stretch", hide_index=True)
 
 # ═══════════════════════════════════════════════════
 # TAB 2 — MAP EXPLORER
@@ -796,7 +796,7 @@ with tabs[2]:
                                "IQR": f"{IQR:.2f}", "Outliers (n)": n_out,
                                "Outlier %": f"{n_out/len(df)*100:.1f}%"})
     out_df = pd.DataFrame(outlier_stats)
-    st.dataframe(out_df, use_container_width=True, hide_index=True)
+    st.dataframe(out_df, width="stretch", hide_index=True)
 
 # ═══════════════════════════════════════════════════
 # TAB 4 — MODEL ARENA
@@ -817,7 +817,7 @@ with tabs[3]:
             "Best?": "Yes" if is_best else "",
         })
     arena_df = pd.DataFrame(arena_rows).sort_values("R²", ascending=False).reset_index(drop=True)
-    st.dataframe(arena_df, use_container_width=True, hide_index=True)
+    st.dataframe(arena_df, width="stretch", hide_index=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1097,7 +1097,7 @@ with tabs[5]:
         "CV Min":  [f"{s.min():.4f}"    for s in cv_results.values()],
         "CV Max":  [f"{s.max():.4f}"    for s in cv_results.values()],
     })
-    st.dataframe(cv_summary, use_container_width=True, hide_index=True)
+    st.dataframe(cv_summary, width="stretch", hide_index=True)
 
 # ═══════════════════════════════════════════════════
 # TAB 7 — SCENARIO COMPARE
@@ -1224,7 +1224,7 @@ with tabs[6]:
                                   for p in sc_predictions],
             "Percentile":      [f"{(df['Price'] < p).mean()*100:.0f}th" for p in sc_predictions],
         }
-        st.dataframe(pd.DataFrame(diff_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(diff_data), width="stretch", hide_index=True)
 
 # ═══════════════════════════════════════════════════
 # TAB 8 — EXPORT
@@ -1287,7 +1287,7 @@ with tabs[7]:
 
     # Dataset summary
     st.markdown("**Dataset Summary Statistics**")
-    st.dataframe(df[FEATURES + ["Price"]].describe().round(3), use_container_width=True)
+    st.dataframe(df[FEATURES + ["Price"]].describe().round(3), width="stretch")
 
 # ═══════════════════════════════════════════════════
 # TAB 9 — RAW DATA (optional)
@@ -1316,7 +1316,7 @@ if show_raw:
 
         st.markdown(f"Showing **{len(filtered):,}** rows matching filters")
         st.dataframe(filtered[FEATURES + ["Price"]].round(3),
-                     use_container_width=True, hide_index=True)
+                     width="stretch", hide_index=True)
 
 # ── Footer ────────────────────────────────────────────────────────────────
 st.markdown("---")
